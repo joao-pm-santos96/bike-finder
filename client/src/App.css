@@ -1,0 +1,169 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --text: #1e2430;
+  --muted: #586174;
+  --primary: #265ef7;
+  --primary-dark: #1b46be;
+  --line: #d6dceb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 50%);
+  color: var(--text);
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 16px 40px;
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.hero p {
+  color: var(--muted);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 8px 30px rgba(38, 94, 247, 0.07);
+}
+
+.progress-wrap {
+  margin-bottom: 12px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #ecf0fa;
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #265ef7, #5a84ff);
+  transition: width 0.2s ease-in-out;
+}
+
+.options {
+  margin: 18px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.option-btn {
+  border: 1px solid var(--line);
+  background: #f8faff;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.option-btn.selected {
+  border-color: var(--primary);
+  background: #eef3ff;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn.primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn.primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn.secondary {
+  background: #eff3fd;
+  color: #32415f;
+}
+
+.recommendation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.bike-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fcfdff;
+}
+
+.bike-card.top {
+  border: 2px solid #4d79ff;
+}
+
+.bike-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #e9edf8;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #2e53bf;
+  background: #e8efff;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.explanation pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  background: #f7f9ff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}

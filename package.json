@@ -1,0 +1,28 @@
+{
+  "name": "bike-finder",
+  "version": "1.0.0",
+  "description": "Aplicacao web para recomendar motas com scoring interno.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev:server": "node server.js",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build:client": "npm --prefix client run build",
+    "build": "npm run build:client"
+  },
+  "keywords": [
+    "moto",
+    "recomendacao",
+    "quiz"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

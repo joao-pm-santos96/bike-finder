@@ -1,0 +1,42 @@
+{
+  "weights": {
+    "usageMatch": 26,
+    "budgetMatch": 20,
+    "experienceMatch": 16,
+    "styleMatch": 12,
+    "priorityFit": 26
+  },
+  "experienceTargetPower": {
+    "iniciante": "baixa",
+    "intermedio": "media",
+    "avancado": "alta"
+  },
+  "priorityWeights": {
+    "consumo": {
+      "consumptionLevel": 0.6,
+      "maintenanceLevel": 0.4
+    },
+    "conforto": {
+      "comfortLevel": 0.7,
+      "consumptionLevel": 0.3
+    },
+    "desempenho": {
+      "powerLevel": 0.7,
+      "comfortLevel": 0.3
+    },
+    "manutencao": {
+      "maintenanceLevel": 0.8,
+      "consumptionLevel": 0.2
+    }
+  },
+  "priceScale": {
+    "baixo": 1,
+    "medio": 2,
+    "alto": 3
+  },
+  "powerScale": {
+    "baixa": 1,
+    "media": 2,
+    "alta": 3
+  }
+}

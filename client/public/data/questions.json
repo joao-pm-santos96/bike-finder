@@ -1,0 +1,50 @@
+[
+  {
+    "id": "usage",
+    "label": "Como vais usar mais a mota?",
+    "options": [
+      { "value": "cidade", "label": "Cidade" },
+      { "value": "misto", "label": "Uso misto" },
+      { "value": "viagem", "label": "Viagens/estrada" }
+    ]
+  },
+  {
+    "id": "experience",
+    "label": "Qual e o teu nivel de experiencia?",
+    "options": [
+      { "value": "iniciante", "label": "Iniciante" },
+      { "value": "intermedio", "label": "Intermedio" },
+      { "value": "avancado", "label": "Avancado" }
+    ]
+  },
+  {
+    "id": "budget",
+    "label": "Qual e o teu orcamento esperado?",
+    "options": [
+      { "value": "baixo", "label": "Baixo" },
+      { "value": "medio", "label": "Medio" },
+      { "value": "alto", "label": "Alto" }
+    ]
+  },
+  {
+    "id": "style",
+    "label": "Que estilo de mota preferes?",
+    "options": [
+      { "value": "scooter", "label": "Scooter" },
+      { "value": "naked", "label": "Naked" },
+      { "value": "trail", "label": "Trail" },
+      { "value": "sport-touring", "label": "Sport touring" },
+      { "value": "indiferente", "label": "Indiferente" }
+    ]
+  },
+  {
+    "id": "priority",
+    "label": "Qual e a tua prioridade principal?",
+    "options": [
+      { "value": "consumo", "label": "Consumo" },
+      { "value": "conforto", "label": "Conforto" },
+      { "value": "desempenho", "label": "Desempenho" },
+      { "value": "manutencao", "label": "Baixa manutencao" }
+    ]
+  }
+]
