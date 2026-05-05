@@ -1,11 +1,24 @@
 import { useEffect, useRef, useState } from "react";
+import { AppHeader } from "./components/AppHeader";
+import { HeroBlock } from "./components/HeroBlock";
+import { Logo } from "./components/Logo";
 import { QuizCard } from "./components/QuizCard";
 import { ResultsCard } from "./components/ResultsCard";
+import { ThinkingSkeleton } from "./components/ThinkingSkeleton";
 import { buildFallbackExplanation, localFallbackImages } from "./lib/fallbacks";
 import { rankMotorcycles } from "./lib/scoring";
 import { readCache, writeCache } from "./lib/cache";
 import { fetchBikeImage, fetchExplanation, fetchJson } from "./services/api";
 import "./App.css";
+
+const THEME_STORAGE_KEY = "bikefinder-theme";
+
+function getInitialTheme() {
+  if (typeof window === "undefined") return "light";
+  const saved = localStorage.getItem(THEME_STORAGE_KEY);
+  if (saved === "dark" || saved === "light") return saved;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 function logExplanationFallback(result, extra = {}) {
   // eslint-disable-next-line no-console
@@ -26,16 +39,17 @@ function App() {
   const [top3, setTop3] = useState([]);
   const [imageByBikeId, setImageByBikeId] = useState({});
   const [explanationText, setExplanationText] = useState("");
-  const [explanationMeta, setExplanationMeta] = useState({
-    isFallback: false,
-    reason: "",
-    llmStatus: null,
-    llmErrorSnippet: ""
-  });
   const [isPreparing, setIsPreparing] = useState(false);
+  const [preparingTop3, setPreparingTop3] = useState(null);
+  const [theme, setTheme] = useState(getInitialTheme);
   const [error, setError] = useState("");
 
   const imageCacheRef = useRef({});
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -55,6 +69,10 @@ function App() {
 
     bootstrap();
   }, []);
+
+  function toggleTheme() {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
 
   async function getImageForBike(bike) {
     const imageCacheVersion = "v4";
@@ -155,9 +173,9 @@ function App() {
 
     const profile = { ...answers };
     const { top3: selectedTop3, reasoningMap: selectedReasoningMap } = rankMotorcycles(profile, motorcycles, rules);
+    setPreparingTop3(selectedTop3);
     setIsPreparing(true);
     setExplanationText("");
-    setExplanationMeta({ isFallback: false, reason: "", llmStatus: null, llmErrorSnippet: "" });
 
     try {
       const [imagesEntries, finalExplanation] = await Promise.all([
@@ -172,14 +190,9 @@ function App() {
 
       setImageByBikeId(Object.fromEntries(imagesEntries));
       setExplanationText(finalExplanation.text || "");
-      setExplanationMeta({
-        isFallback: Boolean(finalExplanation.isFallback),
-        reason: finalExplanation.reason || "",
-        llmStatus: finalExplanation.llmStatus ?? null,
-        llmErrorSnippet: finalExplanation.llmErrorSnippet || ""
-      });
       setTop3(selectedTop3);
     } finally {
+      setPreparingTop3(null);
       setIsPreparing(false);
     }
   }
@@ -187,14 +200,14 @@ function App() {
   if (isPreparing) {
     return (
       <main className="container">
-        <section className="hero">
-          <h1>Descobre a tua mota ideal</h1>
-          <p>Responde a um questionario rapido e recebe 1 recomendacao principal e 2 alternativas.</p>
-        </section>
+        <AppHeader theme={theme} onToggleTheme={toggleTheme} />
+        <HeroBlock />
         <div className="card thinking-card">
+          <Logo variant="thinking" />
           <div className="spinner" aria-hidden="true" />
-          <h2>A pensar na tua recomendacao...</h2>
-          <p>Estamos a preparar imagens e explicacao personalizada.</p>
+          <h2 className="thinking-title">A pensar na tua recomendacao...</h2>
+          <p className="thinking-lead">Estamos a preparar imagens e explicacao personalizada.</p>
+          <ThinkingSkeleton bikes={preparingTop3} />
         </div>
       </main>
     );
@@ -206,14 +219,20 @@ function App() {
     setTop3([]);
     setImageByBikeId({});
     setExplanationText("");
-    setExplanationMeta({ isFallback: false, reason: "", llmStatus: null, llmErrorSnippet: "" });
     setIsPreparing(false);
+    setPreparingTop3(null);
   }
 
   if (error) {
     return (
       <main className="container">
-        <div className="card">{error}</div>
+        <AppHeader theme={theme} onToggleTheme={toggleTheme} />
+        <div className="card card--message">
+          <div className="results-brand">
+            <Logo variant="inline" />
+          </div>
+          {error}
+        </div>
       </main>
     );
   }
@@ -221,7 +240,13 @@ function App() {
   if (!questions.length || !rules || !motorcycles.length) {
     return (
       <main className="container">
-        <div className="card">A carregar...</div>
+        <AppHeader theme={theme} onToggleTheme={toggleTheme} />
+        <div className="card card--message">
+          <div className="results-brand">
+            <Logo variant="inline" />
+          </div>
+          A carregar...
+        </div>
       </main>
     );
   }
@@ -230,29 +255,31 @@ function App() {
 
   return (
     <main className="container">
-      <section className="hero">
-        <h1>Descobre a tua mota ideal</h1>
-        <p>Responde a um questionario rapido e recebe 1 recomendacao principal e 2 alternativas.</p>
-      </section>
+      <AppHeader theme={theme} onToggleTheme={toggleTheme} />
+      <HeroBlock />
 
       {!top3.length ? (
-        <QuizCard
-          question={question}
-          currentQuestion={currentQuestion}
-          totalQuestions={questions.length}
-          selectedAnswer={answers[question.id]}
-          onSelectOption={(value) => setAnswers((prev) => ({ ...prev, [question.id]: value }))}
-          onPrevious={() => setCurrentQuestion((value) => Math.max(0, value - 1))}
-          onNext={handleNext}
-          isPreparing={isPreparing}
-        />
+        <div key={currentQuestion} className="panel-enter">
+          <QuizCard
+            question={question}
+            currentQuestion={currentQuestion}
+            totalQuestions={questions.length}
+            selectedAnswer={answers[question.id]}
+            onSelectOption={(value) => setAnswers((prev) => ({ ...prev, [question.id]: value }))}
+            onPrevious={() => setCurrentQuestion((value) => Math.max(0, value - 1))}
+            onNext={handleNext}
+            isPreparing={isPreparing}
+          />
+        </div>
       ) : (
-        <ResultsCard
-          top3={top3}
-          explanationText={explanationText}
-          imageByBikeId={imageByBikeId}
-          onRestart={handleRestart}
-        />
+        <div className="panel-enter results-enter">
+          <ResultsCard
+            top3={top3}
+            explanationText={explanationText}
+            imageByBikeId={imageByBikeId}
+            onRestart={handleRestart}
+          />
+        </div>
       )}
     </main>
   );

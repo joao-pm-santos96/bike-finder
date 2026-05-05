@@ -11,15 +11,15 @@ export function QuizCard({
   const progress = Math.round(((currentQuestion + 1) / totalQuestions) * 100);
 
   return (
-    <div className="card">
+    <div className="card quiz-card">
       <div className="progress-wrap">
-        <div>{`Pergunta ${currentQuestion + 1} de ${totalQuestions}`}</div>
+        <div className="progress-label">{`Pergunta ${currentQuestion + 1} de ${totalQuestions}`}</div>
         <div className="progress-bar">
           <span className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
-      <h2>{question.label}</h2>
+      <h2 className="quiz-question">{question.label}</h2>
       <div className="options">
         {question.options.map((option) => (
           <button
