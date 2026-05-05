@@ -7,9 +7,14 @@ import { readCache, writeCache } from "./lib/cache";
 import { fetchBikeImage, fetchExplanation, fetchJson } from "./services/api";
 import "./App.css";
 
-function getExplanationCacheKey(profile, top3) {
-  const payload = JSON.stringify({ profile, ids: top3.map((item) => item.id) });
-  return `bikefinder:explain:${btoa(unescape(encodeURIComponent(payload)))}`;
+function logExplanationFallback(result, extra = {}) {
+  // eslint-disable-next-line no-console
+  console.warn("[bikefinder] Explicacao em fallback", {
+    reason: result.reason || "unknown",
+    status: result.llmStatus ?? null,
+    detail: result.llmErrorSnippet || "",
+    ...extra
+  });
 }
 
 function App() {
@@ -21,6 +26,12 @@ function App() {
   const [top3, setTop3] = useState([]);
   const [imageByBikeId, setImageByBikeId] = useState({});
   const [explanationText, setExplanationText] = useState("");
+  const [explanationMeta, setExplanationMeta] = useState({
+    isFallback: false,
+    reason: "",
+    llmStatus: null,
+    llmErrorSnippet: ""
+  });
   const [isPreparing, setIsPreparing] = useState(false);
   const [error, setError] = useState("");
 
@@ -64,8 +75,20 @@ function App() {
         writeCache(imageCacheKey, image.src);
         return image.src;
       }
-    } catch {
-      // Use fallback below.
+      // eslint-disable-next-line no-console
+      console.warn("[bikefinder] Imagem em fallback", {
+        bikeId: bike.id,
+        query: bike.name,
+        apiReason: data.reason || "unknown"
+      });
+    } catch (imageError) {
+      // eslint-disable-next-line no-console
+      console.warn("[bikefinder] Imagem em fallback", {
+        bikeId: bike.id,
+        query: bike.name,
+        apiReason: "request_failed_on_client",
+        detail: imageError?.message || ""
+      });
     }
 
     const fallback = localFallbackImages[bike.category]?.[0] || localFallbackImages.default[0];
@@ -75,10 +98,6 @@ function App() {
   }
 
   async function getExplanation(profile, selectedTop3, selectedReasoningMap) {
-    const explainCacheKey = getExplanationCacheKey(profile, selectedTop3);
-    const cached = readCache(explainCacheKey);
-    if (cached) return cached;
-
     const fallbackText = buildFallbackExplanation(selectedTop3, profile, selectedReasoningMap);
     try {
       const data = await fetchExplanation({
@@ -86,12 +105,38 @@ function App() {
         top3: selectedTop3,
         reasoning: selectedReasoningMap
       });
-      const text = data.fallback ? fallbackText : data.text;
-      writeCache(explainCacheKey, text);
-      return text;
-    } catch {
-      writeCache(explainCacheKey, fallbackText);
-      return fallbackText;
+      const apiText = (data.text || "").trim();
+      let text = data.fallback ? fallbackText : apiText;
+      let isFallback = Boolean(data.fallback);
+      let reason = data.reason || (data.fallback ? "unknown_fallback_reason" : "ok");
+
+      if (!isFallback && !apiText) {
+        text = fallbackText;
+        isFallback = true;
+        reason = "empty_llm_response";
+      }
+
+      const result = {
+        text,
+        isFallback,
+        reason,
+        llmStatus: data.llmStatus ?? null,
+        llmErrorSnippet: data.llmErrorSnippet || ""
+      };
+      if (result.isFallback) {
+        logExplanationFallback(result, { source: "network_or_parse" });
+      }
+      return result;
+    } catch (explainError) {
+      const result = {
+        text: fallbackText,
+        isFallback: true,
+        reason: "request_failed_on_client",
+        llmStatus: null,
+        llmErrorSnippet: explainError?.message || ""
+      };
+      logExplanationFallback(result, { source: "client_fetch" });
+      return result;
     }
   }
 
@@ -110,22 +155,49 @@ function App() {
 
     const profile = { ...answers };
     const { top3: selectedTop3, reasoningMap: selectedReasoningMap } = rankMotorcycles(profile, motorcycles, rules);
-    setTop3(selectedTop3);
     setIsPreparing(true);
+    setExplanationText("");
+    setExplanationMeta({ isFallback: false, reason: "", llmStatus: null, llmErrorSnippet: "" });
 
-    const [imagesEntries, finalExplanation] = await Promise.all([
-      Promise.all(
-        selectedTop3.map(async (bike) => {
-          const imageUrl = await getImageForBike(bike);
-          return [bike.id, imageUrl];
-        })
-      ),
-      getExplanation(profile, selectedTop3, selectedReasoningMap)
-    ]);
+    try {
+      const [imagesEntries, finalExplanation] = await Promise.all([
+        Promise.all(
+          selectedTop3.map(async (bike) => {
+            const imageUrl = await getImageForBike(bike);
+            return [bike.id, imageUrl];
+          })
+        ),
+        getExplanation(profile, selectedTop3, selectedReasoningMap)
+      ]);
 
-    setImageByBikeId(Object.fromEntries(imagesEntries));
-    setExplanationText(finalExplanation);
-    setIsPreparing(false);
+      setImageByBikeId(Object.fromEntries(imagesEntries));
+      setExplanationText(finalExplanation.text || "");
+      setExplanationMeta({
+        isFallback: Boolean(finalExplanation.isFallback),
+        reason: finalExplanation.reason || "",
+        llmStatus: finalExplanation.llmStatus ?? null,
+        llmErrorSnippet: finalExplanation.llmErrorSnippet || ""
+      });
+      setTop3(selectedTop3);
+    } finally {
+      setIsPreparing(false);
+    }
+  }
+
+  if (isPreparing) {
+    return (
+      <main className="container">
+        <section className="hero">
+          <h1>Descobre a tua mota ideal</h1>
+          <p>Responde a um questionario rapido e recebe 1 recomendacao principal e 2 alternativas.</p>
+        </section>
+        <div className="card thinking-card">
+          <div className="spinner" aria-hidden="true" />
+          <h2>A pensar na tua recomendacao...</h2>
+          <p>Estamos a preparar imagens e explicacao personalizada.</p>
+        </div>
+      </main>
+    );
   }
 
   function handleRestart() {
@@ -134,6 +206,7 @@ function App() {
     setTop3([]);
     setImageByBikeId({});
     setExplanationText("");
+    setExplanationMeta({ isFallback: false, reason: "", llmStatus: null, llmErrorSnippet: "" });
     setIsPreparing(false);
   }
 
@@ -174,7 +247,12 @@ function App() {
           isPreparing={isPreparing}
         />
       ) : (
-        <ResultsCard top3={top3} explanationText={explanationText} imageByBikeId={imageByBikeId} onRestart={handleRestart} />
+        <ResultsCard
+          top3={top3}
+          explanationText={explanationText}
+          imageByBikeId={imageByBikeId}
+          onRestart={handleRestart}
+        />
       )}
     </main>
   );

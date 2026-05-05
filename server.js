@@ -9,7 +9,12 @@ const clientDistPath = path.join(__dirname, "client", "dist");
 const clientDistIndexPath = path.join(clientDistPath, "index.html");
 
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY || "";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MAX_OUTPUT_TOKENS = 700;
+const GROQ_MAX_RETRIES = 2;
+const GROQ_RETRY_BASE_DELAY_MS = 500;
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_MAX = 30;
 const ipCounters = new Map();
@@ -93,61 +98,125 @@ app.get("/api/images", rateLimit, async (req, res) => {
 app.post("/api/explain", rateLimit, async (req, res) => {
   const { profile, top3, reasoning } = req.body || {};
 
-  if (!GEMINI_API_KEY) {
-    return res.status(200).json({ text: "", fallback: true, reason: "missing_gemini_api_key" });
+  if (!GROQ_API_KEY) {
+    return res.status(200).json({ text: "", fallback: true, reason: "missing_groq_api_key" });
   }
 
+  const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const prompt = [
-    "Escreve uma explicacao muito simples em portugues de Portugal.",
-    "Tom: claro, pratico e amigavel.",
-    "Usa frases curtas e linguagem do dia a dia.",
+    "Escreve uma explicacao em portugues de Portugal, com tom tecnico, claro e objetivo.",
+    "Fala diretamente para o utilizador (trata por 'tu'), sem linguagem comercial.",
+    "Evita bullet points. Escreve 2 a 3 paragrafos curtos e bem estruturados.",
+    "Justifica a recomendacao principal com base em criterios práticos: utilizacao, custo total, conforto, desempenho e margem de evolucao.",
+    "Menciona as alternativas de forma comparativa, explicando trade-offs concretos.",
+    "Usa vocabulário técnico acessível, sem jargao desnecessario.",
+    "Varia a formulacao e a ordem das ideias entre respostas com os mesmos dados; o conteudo tecnico deve manter-se equivalente.",
     "Tamanho recomendado: 120 a 180 palavras.",
-    "Termina sempre com frase completa.",
+    "Termina com uma conclusao objetiva.",
     "Sem inventar dados tecnicos nao fornecidos.",
-    "Estrutura: 1 paragrafo para recomendacao principal + 2 bullets para alternativas.",
+    `Semente editorial (nao cites nem expliques esta linha no texto): ${variationSeed}`,
     `Perfil do utilizador: ${JSON.stringify(profile || {})}`,
     `Top 3 escolhido pelo motor interno: ${JSON.stringify(top3 || [])}`,
     `Razoes do scoring interno: ${JSON.stringify(reasoning || {})}`
   ].join("\n");
 
-  try {
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 900
+  async function generateGroqContent(textPrompt) {
+    const response = await fetch(GROQ_MODEL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        temperature: 0.75,
+        top_p: 0.92,
+        max_tokens: GROQ_MAX_OUTPUT_TOKENS,
+        messages: [
+          {
+            role: "user",
+            content: textPrompt
           }
-        })
-      }
-    );
+        ]
+      })
+    });
 
+    return response;
+  }
+
+  function buildErrorSnippet(payloadText) {
+    if (!payloadText) return "";
+    return payloadText.replace(/\s+/g, " ").trim().slice(0, 240);
+  }
+
+  function canRetryLlmStatus(statusCode) {
+    return statusCode === 429 || statusCode === 503;
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  async function generateGroqWithRetry(textPrompt) {
+    let lastResponse = null;
+    let lastRawError = "";
+
+    for (let attempt = 0; attempt <= GROQ_MAX_RETRIES; attempt += 1) {
+      const response = await generateGroqContent(textPrompt);
+      lastResponse = response;
+
+      if (response.ok) {
+        return { response, rawError: "" };
+      }
+
+      const rawError = await response.text();
+      lastRawError = rawError;
+
+      if (!canRetryLlmStatus(response.status) || attempt === GROQ_MAX_RETRIES) {
+        return { response, rawError };
+      }
+
+      const backoffMs = GROQ_RETRY_BASE_DELAY_MS * 2 ** attempt + Math.floor(Math.random() * 200);
+      await delay(backoffMs);
+    }
+
+    return { response: lastResponse, rawError: lastRawError };
+  }
+
+  function readGroqText(data) {
+    return data?.choices?.[0]?.message?.content?.trim() || "";
+  }
+
+  try {
+    const { response, rawError } = await generateGroqWithRetry(prompt);
     if (!response.ok) {
-      return res.status(200).json({ text: "", fallback: true, reason: "llm_api_error" });
+      return res.status(200).json({
+        text: "",
+        fallback: true,
+        reason: "llm_api_error",
+        llmStatus: response.status,
+        llmErrorSnippet: buildErrorSnippet(rawError)
+      });
     }
 
     const data = await response.json();
-    const text =
-      data?.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text)
-        .join("\n")
-        .trim() || "";
-    const completedText = text && /[.!?]$/.test(text) ? text : text ? `${text}.` : "";
+    const cleanedText = readGroqText(data);
+    const completedText = cleanedText && /[.!?]$/.test(cleanedText) ? cleanedText : cleanedText ? `${cleanedText}.` : "";
 
     return res.json({
       text: completedText,
       fallback: !completedText,
       reason: completedText ? "ok" : "empty_text"
     });
-  } catch (_error) {
-    return res.status(200).json({ text: "", fallback: true, reason: "llm_api_unreachable" });
+  } catch (error) {
+    return res.status(200).json({
+      text: "",
+      fallback: true,
+      reason: "llm_api_unreachable",
+      llmErrorSnippet: buildErrorSnippet(error?.message || "")
+    });
   }
 });
 

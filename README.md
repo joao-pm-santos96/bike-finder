@@ -36,7 +36,7 @@ Aplicacao web simples para recomendar a mota ideal com base num questionario cur
 
 4. Preencher chaves (opcional para MVP local):
    - `PEXELS_API_KEY` para imagens.
-   - `GEMINI_API_KEY` para explicacao inteligente.
+   - `GROQ_API_KEY` para explicacao inteligente.
 
 5. Arrancar app em desenvolvimento (Express + Vite):
 
@@ -92,7 +92,7 @@ Ambas sao opcionais para correr o MVP: sem chaves, a app continua funcional com 
 5. Start command: `npm start`
 6. Definir variaveis de ambiente:
    - `PEXELS_API_KEY`
-   - `GEMINI_API_KEY`
+   - `GROQ_API_KEY`
 7. Publicar.
 
 ### Opcao com ficheiro
@@ -102,5 +102,5 @@ O projeto inclui `render.yaml` com configuracao base.
 ## Notas de robustez
 
 - Rate limit basico no backend para evitar abuso.
-- Cache local para imagens e explicacoes, reduzindo chamadas externas.
+- Cache local para imagens, reduzindo chamadas externas (a explicacao e sempre pedida de novo ao modelo).
 - Fallback local para manter demo funcional mesmo sem APIs.
