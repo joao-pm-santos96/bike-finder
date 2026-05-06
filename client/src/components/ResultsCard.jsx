@@ -1,18 +1,31 @@
 import { Logo } from "./Logo";
 import { RecommendationCard } from "./RecommendationCard";
 
-export function ResultsCard({ top3, explanationText, imageByBikeId, onRestart }) {
+const COMPARISON_METRICS = [
+  { key: "brand", label: "Marca" },
+  { key: "model", label: "Modelo" },
+  { key: "year", label: "Ano" },
+  { key: "displacement", label: "Cilindrada" },
+  { key: "power", label: "Potencia" },
+  { key: "comfort", label: "Conforto" },
+  { key: "maintenance", label: "Manutencao" },
+  { key: "consumption", label: "Consumo" }
+];
+
+export function ResultsCard({ top3, comparisonRows, imageByBikeId, onRestart, labels }) {
+  const rows = comparisonRows?.length ? comparisonRows : top3.map((bike) => ({ id: bike.id, name: bike.name, specs: {} }));
+
   return (
     <div className="card results-panel">
       <div className="results-brand">
         <Logo variant="inline" />
       </div>
-      <h2 className="results-title">A tua recomendacao</h2>
-      <p className="results-subtitle">Resultado gerado pelo motor interno de scoring.</p>
+      <h2 className="results-title">{labels.recommendationTitle}</h2>
+      <p className="results-subtitle">{labels.recommendationSubtitle}</p>
 
       <div className="recommendation-grid">
         {top3.map((bike, idx) => (
-          <RecommendationCard key={bike.id} bike={bike} imageUrl={imageByBikeId[bike.id]} isTop={idx === 0} />
+          <RecommendationCard key={bike.id} bike={bike} imageUrl={imageByBikeId[bike.id]} isTop={idx === 0} labels={labels} />
         ))}
       </div>
 
@@ -26,13 +39,36 @@ export function ResultsCard({ top3, explanationText, imageByBikeId, onRestart })
               />
             </svg>
           </span>
-          Explicacao tecnica
+          {labels.technicalExplanation}
         </h3>
-        <pre className="explanation-body">{explanationText}</pre>
+        <div className="comparison-table-wrap">
+          <table className="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Metrica</th>
+                {rows.map((bike) => (
+                  <th key={bike.id} scope="col">
+                    {bike.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARISON_METRICS.map((metric) => (
+                <tr key={metric.key}>
+                  <th scope="row">{metric.label}</th>
+                  {rows.map((bike) => (
+                    <td key={`${bike.id}-${metric.key}`}>{bike?.specs?.[metric.key] || "n/d"}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <button type="button" className="btn primary btn-wide" onClick={onRestart}>
-        Refazer questionario
+        {labels.restartQuiz}
       </button>
     </div>
   );

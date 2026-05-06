@@ -278,12 +278,37 @@ function normalizeFallbackSpecs(specs = {}) {
     model: specs.model || "n/d",
     year: specs.year || "n/d",
     displacement: specs.displacement || "n/d",
-    power: specs.power || "n/d"
+    power: specs.power || "n/d",
+    comfort: specs.comfort || "n/d",
+    maintenance: specs.maintenance || "n/d",
+    consumption: specs.consumption || "n/d"
   };
 }
 
 function getLocalFallbackSpecs(bike) {
   return normalizeFallbackSpecs(LOCAL_COMPARISON_SPECS[bike.id] || {});
+}
+
+function fromScale(value) {
+  return Number.isFinite(value) ? `${value}/5` : "n/d";
+}
+
+function getStableMetricsFromBike(bike = {}) {
+  return {
+    comfort: fromScale(bike.comfortLevel),
+    maintenance: fromScale(bike.maintenanceLevel),
+    consumption: fromScale(bike.consumptionLevel)
+  };
+}
+
+function withStableMetrics(specs, bike) {
+  const stable = getStableMetricsFromBike(bike);
+  return {
+    ...specs,
+    comfort: specs?.comfort && specs.comfort !== "n/d" ? specs.comfort : stable.comfort,
+    maintenance: specs?.maintenance && specs.maintenance !== "n/d" ? specs.maintenance : stable.maintenance,
+    consumption: specs?.consumption && specs.consumption !== "n/d" ? specs.consumption : stable.consumption
+  };
 }
 
 async function fetchJsonWithTimeout(url, timeoutMs = 4500) {
@@ -340,7 +365,10 @@ function toComparisonLine(result) {
     `modelo ${result.specs.model}`,
     `ano ${result.specs.year}`,
     `cilindrada ${result.specs.displacement}`,
-    `potencia ${result.specs.power}`
+    `potencia ${result.specs.power}`,
+    `conforto ${result.specs.comfort}`,
+    `manutencao ${result.specs.maintenance}`,
+    `consumo ${result.specs.consumption}`
   ].join(" | ");
 }
 
@@ -364,15 +392,17 @@ app.post("/api/compare", rateLimit, async (req, res) => {
     const results = await Promise.all(
       selected.map(async (bike) => {
         const apiSpecs = await fetchBestApiSpecs(bike);
-        if (apiSpecs) return { id: bike.id, name: bike.name, specs: apiSpecs, source: "bikespecs" };
+        if (apiSpecs) {
+          return { id: bike.id, name: bike.name, specs: withStableMetrics(apiSpecs, bike), source: "bikespecs" };
+        }
         const localSpecs = getLocalFallbackSpecs(bike);
         if (Object.values(localSpecs).some((value) => value !== "n/d")) {
-          return { id: bike.id, name: bike.name, specs: localSpecs, source: "local_catalog" };
+          return { id: bike.id, name: bike.name, specs: withStableMetrics(localSpecs, bike), source: "local_catalog" };
         }
         return {
           id: bike.id,
           name: bike.name,
-          specs: normalizeFallbackSpecs(),
+          specs: withStableMetrics(normalizeFallbackSpecs(), bike),
           source: "fallback"
         };
       })

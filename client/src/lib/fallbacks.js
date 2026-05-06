@@ -51,3 +51,38 @@ export function buildFallbackExplanation(top3, profile, reasoning) {
     .filter(Boolean)
     .join("\n");
 }
+
+export function buildFallbackComparison(top3 = []) {
+  if (!top3.length) {
+    return "Nao foi possivel gerar o comparador tecnico neste momento.";
+  }
+
+  const lines = ["Comparador tecnico (fallback local):"];
+  for (const bike of top3) {
+    lines.push(
+      `- ${bike.name}: categoria ${bike.category || "n/d"} | orcamento ${bike.priceRange || "n/d"} | potencia ${bike.powerLevel || "n/d"} | conforto ${bike.comfortLevel || "n/d"}/5 | manutencao ${bike.maintenanceLevel || "n/d"}/5 | consumo ${bike.consumptionLevel || "n/d"}/5`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+export function buildFallbackComparisonRows(top3 = []) {
+  const formatScale = (value) => (typeof value === "number" ? `${value}/5` : "n/d");
+
+  return top3.map((bike) => ({
+    id: bike.id,
+    name: bike.name,
+    source: "fallback",
+    specs: {
+      brand: "n/d",
+      model: bike.name || "n/d",
+      year: "n/d",
+      displacement: "n/d",
+      power: "n/d",
+      comfort: formatScale(bike.comfortLevel),
+      maintenance: formatScale(bike.maintenanceLevel),
+      consumption: formatScale(bike.consumptionLevel)
+    }
+  }));
+}
