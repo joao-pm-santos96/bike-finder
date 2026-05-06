@@ -1,0 +1,17 @@
+{
+  "honda-pcx-125": { "brand": "Honda", "model": "PCX 125", "year": "2024", "displacement": "125 cc", "power": "12.5 hp" },
+  "yamaha-nmax-125": { "brand": "Yamaha", "model": "NMAX 125", "year": "2024", "displacement": "125 cc", "power": "12.2 hp" },
+  "kawasaki-z400": { "brand": "Kawasaki", "model": "Z400", "year": "2024", "displacement": "399 cc", "power": "48 hp" },
+  "honda-cb500f": { "brand": "Honda", "model": "CB500F", "year": "2024", "displacement": "471 cc", "power": "47 hp" },
+  "yamaha-mt-07": { "brand": "Yamaha", "model": "MT-07", "year": "2024", "displacement": "689 cc", "power": "73.4 hp" },
+  "bmw-g310gs": { "brand": "BMW", "model": "G 310 GS", "year": "2024", "displacement": "313 cc", "power": "34 hp" },
+  "honda-cb500x": { "brand": "Honda", "model": "CB500X", "year": "2024", "displacement": "471 cc", "power": "47 hp" },
+  "suzuki-vstrom-650": { "brand": "Suzuki", "model": "V-Strom 650", "year": "2024", "displacement": "645 cc", "power": "71 hp" },
+  "honda-cbr500r": { "brand": "Honda", "model": "CBR500R", "year": "2024", "displacement": "471 cc", "power": "47 hp" },
+  "yamaha-r7": { "brand": "Yamaha", "model": "YZF-R7", "year": "2024", "displacement": "689 cc", "power": "73.4 hp" },
+  "triumph-tiger-900": { "brand": "Triumph", "model": "Tiger 900", "year": "2024", "displacement": "888 cc", "power": "95 hp" },
+  "royal-enfield-himalayan-450": { "brand": "Royal Enfield", "model": "Himalayan 450", "year": "2024", "displacement": "452 cc", "power": "40 hp" },
+  "ktm-390-duke": { "brand": "KTM", "model": "390 Duke", "year": "2024", "displacement": "399 cc", "power": "45 hp" },
+  "bmw-f900xr": { "brand": "BMW", "model": "F 900 XR", "year": "2024", "displacement": "895 cc", "power": "105 hp" },
+  "honda-forza-750": { "brand": "Honda", "model": "Forza 750", "year": "2024", "displacement": "745 cc", "power": "58.6 hp" }
+}

@@ -7,14 +7,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const clientDistPath = path.join(__dirname, "client", "dist");
 const clientDistIndexPath = path.join(clientDistPath, "index.html");
+const localComparisonSpecsPath = path.join(__dirname, "client", "public", "data", "comparison-specs.json");
 
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY || "";
-const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-const GROQ_MODEL_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MAX_OUTPUT_TOKENS = 700;
-const GROQ_MAX_RETRIES = 2;
-const GROQ_RETRY_BASE_DELAY_MS = 500;
+const BIKESPECS_API_BASE_URL = process.env.BIKESPECS_API_BASE_URL || "https://www.bikespecs.org/api/v1";
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_MAX = 30;
 const ipCounters = new Map();
@@ -95,127 +91,305 @@ app.get("/api/images", rateLimit, async (req, res) => {
   }
 });
 
-app.post("/api/explain", rateLimit, async (req, res) => {
-  const { profile, top3, reasoning } = req.body || {};
+function getBrandAndModelFromName(name) {
+  const tokens = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return { brand: "", model: name || "" };
+  return { brand: tokens[0], model: tokens.slice(1).join(" ") };
+}
 
-  if (!GROQ_API_KEY) {
-    return res.status(200).json({ text: "", fallback: true, reason: "missing_groq_api_key" });
+function toApiSearchUrl(query, brand) {
+  const url = new URL(`${BIKESPECS_API_BASE_URL}/search`);
+  url.searchParams.set("q", query);
+  url.searchParams.set("per_page", "20");
+  if (brand) url.searchParams.set("brand", brand);
+  return url.toString();
+}
+
+function loadLocalComparisonSpecs() {
+  try {
+    if (!fs.existsSync(localComparisonSpecsPath)) return {};
+    const raw = fs.readFileSync(localComparisonSpecsPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_error) {
+    return {};
   }
+}
 
-  const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const prompt = [
-    "Escreve uma explicacao em portugues de Portugal, com tom tecnico, claro e objetivo.",
-    "Fala diretamente para o utilizador (trata por 'tu'), sem linguagem comercial.",
-    "Evita bullet points. Escreve 2 a 3 paragrafos curtos e bem estruturados.",
-    "Justifica a recomendacao principal com base em criterios práticos: utilizacao, custo total, conforto, desempenho e margem de evolucao.",
-    "Menciona as alternativas de forma comparativa, explicando trade-offs concretos.",
-    "Usa vocabulário técnico acessível, sem jargao desnecessario.",
-    "Varia a formulacao e a ordem das ideias entre respostas com os mesmos dados; o conteudo tecnico deve manter-se equivalente.",
-    "Tamanho recomendado: 120 a 180 palavras.",
-    "Termina com uma conclusao objetiva.",
-    "Sem inventar dados tecnicos nao fornecidos.",
-    `Semente editorial (nao cites nem expliques esta linha no texto): ${variationSeed}`,
-    `Perfil do utilizador: ${JSON.stringify(profile || {})}`,
-    `Top 3 escolhido pelo motor interno: ${JSON.stringify(top3 || [])}`,
-    `Razoes do scoring interno: ${JSON.stringify(reasoning || {})}`
-  ].join("\n");
+const LOCAL_COMPARISON_SPECS = loadLocalComparisonSpecs();
 
-  async function generateGroqContent(textPrompt) {
-    const response = await fetch(GROQ_MODEL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        temperature: 0.75,
-        top_p: 0.92,
-        max_tokens: GROQ_MAX_OUTPUT_TOKENS,
-        messages: [
-          {
-            role: "user",
-            content: textPrompt
-          }
-        ]
-      })
-    });
+function normalizeText(value) {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-    return response;
-  }
+function normalizeCompact(value) {
+  return normalizeText(value).replace(/[\s-]+/g, "");
+}
 
-  function buildErrorSnippet(payloadText) {
-    if (!payloadText) return "";
-    return payloadText.replace(/\s+/g, " ").trim().slice(0, 240);
-  }
+function createNameVariants(value) {
+  const text = (value || "").trim();
+  if (!text) return [];
+  const clean = normalizeText(text);
+  const noSeparators = clean.replace(/[\s-]+/g, "");
+  const splitAlphaNum = clean.replace(/([a-z])(\d)/g, "$1 $2").replace(/(\d)([a-z])/g, "$1 $2");
+  const joinAlphaNum = clean.replace(/([a-z])\s+(\d)/g, "$1$2").replace(/(\d)\s+([a-z])/g, "$1$2");
+  return [...new Set([text, clean, noSeparators, splitAlphaNum, joinAlphaNum].filter(Boolean))];
+}
 
-  function canRetryLlmStatus(statusCode) {
-    return statusCode === 429 || statusCode === 503;
-  }
+function toSearchQueries(bike) {
+  const { brand, model } = getBrandAndModelFromName(bike.name || "");
+  const aliases = Array.isArray(bike.aliases) ? bike.aliases : [];
+  const raw = [bike.name, model, ...aliases];
+  return {
+    brand,
+    model,
+    queries: [...new Set(raw.flatMap((item) => createNameVariants(item)).filter(Boolean))]
+  };
+}
 
-  function delay(ms) {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  }
+function toArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+  return [value];
+}
 
-  async function generateGroqWithRetry(textPrompt) {
-    let lastResponse = null;
-    let lastRawError = "";
+function extractCandidateList(payload) {
+  const direct = [
+    ...toArray(payload?.data),
+    ...toArray(payload?.results),
+    ...toArray(payload?.items),
+    ...toArray(payload?.bikes),
+    ...toArray(payload)
+  ];
 
-    for (let attempt = 0; attempt <= GROQ_MAX_RETRIES; attempt += 1) {
-      const response = await generateGroqContent(textPrompt);
-      lastResponse = response;
+  return direct.filter((item) => item && typeof item === "object");
+}
 
-      if (response.ok) {
-        return { response, rawError: "" };
+function findNestedValue(obj, keywords) {
+  if (!obj || typeof obj !== "object") return "";
+
+  const normalizedKeywords = keywords.map((keyword) => normalizeText(keyword));
+  const stack = [obj];
+
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current || typeof current !== "object") continue;
+
+    for (const [key, value] of Object.entries(current)) {
+      const normalizedKey = normalizeText(key);
+      if (normalizedKeywords.every((keyword) => normalizedKey.includes(keyword)) && value) {
+        return String(value);
       }
-
-      const rawError = await response.text();
-      lastRawError = rawError;
-
-      if (!canRetryLlmStatus(response.status) || attempt === GROQ_MAX_RETRIES) {
-        return { response, rawError };
+      if (value && typeof value === "object") {
+        stack.push(value);
       }
-
-      const backoffMs = GROQ_RETRY_BASE_DELAY_MS * 2 ** attempt + Math.floor(Math.random() * 200);
-      await delay(backoffMs);
     }
-
-    return { response: lastResponse, rawError: lastRawError };
   }
 
-  function readGroqText(data) {
-    return data?.choices?.[0]?.message?.content?.trim() || "";
+  return "";
+}
+
+function pickFirstNonEmpty(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") return String(value).trim();
+  }
+  return "";
+}
+
+function normalizeCandidateSpecs(candidate) {
+  const brand = pickFirstNonEmpty(candidate?.brand, candidate?.make, candidate?.manufacturer);
+  const model = pickFirstNonEmpty(candidate?.model, candidate?.fullModelName, candidate?.name, candidate?.title);
+  const year = pickFirstNonEmpty(candidate?.year, candidate?.modelYear, candidate?.productionYear, findNestedValue(candidate, ["year"]));
+  const displacement = pickFirstNonEmpty(
+    candidate?.engineSize,
+    candidate?.engine_size,
+    candidate?.displacement,
+    candidate?.cc,
+    findNestedValue(candidate, ["engine", "displacement"]),
+    findNestedValue(candidate, ["displacement"])
+  );
+  const power = pickFirstNonEmpty(
+    candidate?.power,
+    candidate?.horsepower,
+    candidate?.hp,
+    findNestedValue(candidate, ["engine", "power"]),
+    findNestedValue(candidate, ["power"]),
+    findNestedValue(candidate, ["output"])
+  );
+
+  return {
+    brand: brand || "n/d",
+    model: model || "n/d",
+    year: year || "n/d",
+    displacement: displacement || "n/d",
+    power: power || "n/d"
+  };
+}
+
+function scoreCandidate(targetName, targetBrand, targetModel, candidateSpecs) {
+  const targetCompact = normalizeCompact(targetName);
+  const targetBrandCompact = normalizeCompact(targetBrand);
+  const targetModelCompact = normalizeCompact(targetModel);
+  const candidateBrandCompact = normalizeCompact(candidateSpecs.brand);
+  const candidateModelCompact = normalizeCompact(candidateSpecs.model);
+  const candidateFullCompact = normalizeCompact(`${candidateSpecs.brand} ${candidateSpecs.model}`);
+
+  if (!candidateModelCompact && !candidateFullCompact) return 0;
+
+  let score = 0;
+  if (targetCompact && candidateFullCompact === targetCompact) score += 1000;
+  if (targetCompact && (candidateFullCompact.includes(targetCompact) || targetCompact.includes(candidateFullCompact))) score += 500;
+
+  if (targetBrandCompact && candidateBrandCompact) {
+    if (targetBrandCompact === candidateBrandCompact) score += 250;
+    else score -= 350;
+  }
+
+  if (targetModelCompact && candidateModelCompact) {
+    if (targetModelCompact === candidateModelCompact) score += 400;
+    else if (candidateModelCompact.includes(targetModelCompact) || targetModelCompact.includes(candidateModelCompact)) score += 240;
+  }
+
+  const targetTokens = normalizeText(targetModel).split(" ").filter((token) => token.length >= 2);
+  const modelTokens = new Set(normalizeText(candidateSpecs.model).split(" ").filter((token) => token.length >= 2));
+  const overlap = targetTokens.filter((token) => modelTokens.has(token)).length;
+  score += overlap * 80;
+
+  return score;
+}
+
+function hasGoodModelOverlap(targetModel, candidateModel) {
+  const targetTokens = normalizeText(targetModel).split(" ").filter((token) => token.length >= 2);
+  if (!targetTokens.length) return true;
+  const modelTokens = new Set(normalizeText(candidateModel).split(" ").filter((token) => token.length >= 2));
+  const overlap = targetTokens.filter((token) => modelTokens.has(token)).length;
+  return overlap >= 1;
+}
+
+function normalizeFallbackSpecs(specs = {}) {
+  return {
+    brand: specs.brand || "n/d",
+    model: specs.model || "n/d",
+    year: specs.year || "n/d",
+    displacement: specs.displacement || "n/d",
+    power: specs.power || "n/d"
+  };
+}
+
+function getLocalFallbackSpecs(bike) {
+  return normalizeFallbackSpecs(LOCAL_COMPARISON_SPECS[bike.id] || {});
+}
+
+async function fetchJsonWithTimeout(url, timeoutMs = 4500) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return null;
+    return response.json();
+  } catch (_error) {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchBestApiSpecs(bike) {
+  const { brand, model, queries } = toSearchQueries(bike);
+  const scoredCandidates = [];
+
+  for (const query of queries) {
+    const urls = [toApiSearchUrl(query, brand), toApiSearchUrl(query, "")];
+    for (const url of urls) {
+      const payload = await fetchJsonWithTimeout(url);
+      if (!payload) continue;
+
+      const candidates = extractCandidateList(payload);
+      for (const candidate of candidates) {
+        const specs = normalizeCandidateSpecs(candidate);
+        const score = scoreCandidate(bike.name || "", brand, model, specs);
+        scoredCandidates.push({ specs, score });
+      }
+    }
+  }
+
+  if (!scoredCandidates.length) return null;
+
+  scoredCandidates.sort((a, b) => b.score - a.score);
+  const best = scoredCandidates[0];
+  const brandOk =
+    !normalizeCompact(brand) ||
+    !normalizeCompact(best.specs.brand) ||
+    normalizeCompact(brand) === normalizeCompact(best.specs.brand);
+  const modelOk = hasGoodModelOverlap(model || bike.name || "", best.specs.model);
+
+  if (best.score < 220 || !brandOk || !modelOk) return null;
+  return best.specs;
+}
+
+function toComparisonLine(result) {
+  return [
+    `${result.name}:`,
+    `marca ${result.specs.brand}`,
+    `modelo ${result.specs.model}`,
+    `ano ${result.specs.year}`,
+    `cilindrada ${result.specs.displacement}`,
+    `potencia ${result.specs.power}`
+  ].join(" | ");
+}
+
+function buildComparisonText(items) {
+  const lines = [
+    "Comparador tecnico:",
+    ...items.map((item) => `- ${toComparisonLine(item)}`)
+  ];
+  return lines.join("\n");
+}
+
+app.post("/api/compare", rateLimit, async (req, res) => {
+  const { top3 } = req.body || {};
+  const selected = Array.isArray(top3) ? top3.slice(0, 3) : [];
+
+  if (!selected.length) {
+    return res.status(400).json({ text: "", fallback: true, reason: "missing_bikes" });
   }
 
   try {
-    const { response, rawError } = await generateGroqWithRetry(prompt);
-    if (!response.ok) {
-      return res.status(200).json({
-        text: "",
-        fallback: true,
-        reason: "llm_api_error",
-        llmStatus: response.status,
-        llmErrorSnippet: buildErrorSnippet(rawError)
-      });
-    }
-
-    const data = await response.json();
-    const cleanedText = readGroqText(data);
-    const completedText = cleanedText && /[.!?]$/.test(cleanedText) ? cleanedText : cleanedText ? `${cleanedText}.` : "";
+    const results = await Promise.all(
+      selected.map(async (bike) => {
+        const apiSpecs = await fetchBestApiSpecs(bike);
+        if (apiSpecs) return { id: bike.id, name: bike.name, specs: apiSpecs, source: "bikespecs" };
+        const localSpecs = getLocalFallbackSpecs(bike);
+        if (Object.values(localSpecs).some((value) => value !== "n/d")) {
+          return { id: bike.id, name: bike.name, specs: localSpecs, source: "local_catalog" };
+        }
+        return {
+          id: bike.id,
+          name: bike.name,
+          specs: normalizeFallbackSpecs(),
+          source: "fallback"
+        };
+      })
+    );
 
     return res.json({
-      text: completedText,
-      fallback: !completedText,
-      reason: completedText ? "ok" : "empty_text"
+      text: buildComparisonText(results),
+      fallback: results.every((item) => item.source === "fallback"),
+      reason: "ok",
+      comparisons: results
     });
-  } catch (error) {
+  } catch (_error) {
     return res.status(200).json({
       text: "",
       fallback: true,
-      reason: "llm_api_unreachable",
-      llmErrorSnippet: buildErrorSnippet(error?.message || "")
+      reason: "bikespecs_api_unreachable",
+      comparisons: []
     });
   }
 });

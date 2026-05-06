@@ -2,6 +2,7 @@
   {
     "id": "honda-pcx-125",
     "name": "Honda PCX 125",
+    "aliases": ["PCX125", "PCX 125", "Honda PCX125"],
     "category": "scooter",
     "usage": ["cidade", "misto"],
     "priceRange": "baixo",
@@ -15,6 +16,7 @@
   {
     "id": "yamaha-nmax-125",
     "name": "Yamaha NMAX 125",
+    "aliases": ["NMAX125", "NMAX 125", "Yamaha NMAX125"],
     "category": "scooter",
     "usage": ["cidade", "misto"],
     "priceRange": "baixo",
@@ -28,6 +30,7 @@
   {
     "id": "kawasaki-z400",
     "name": "Kawasaki Z400",
+    "aliases": ["Z 400", "Z-400", "Kawasaki Z 400"],
     "category": "naked",
     "usage": ["cidade", "misto"],
     "priceRange": "medio",
@@ -41,6 +44,7 @@
   {
     "id": "honda-cb500f",
     "name": "Honda CB500F",
+    "aliases": ["CB 500 F", "CB-500F", "Honda CB 500 F"],
     "category": "naked",
     "usage": ["misto", "viagem"],
     "priceRange": "medio",
@@ -54,6 +58,7 @@
   {
     "id": "yamaha-mt-07",
     "name": "Yamaha MT-07",
+    "aliases": ["MT07", "MT 07", "Yamaha MT07"],
     "category": "naked",
     "usage": ["misto", "viagem"],
     "priceRange": "medio",
@@ -67,6 +72,7 @@
   {
     "id": "bmw-g310gs",
     "name": "BMW G 310 GS",
+    "aliases": ["BMW G310GS", "G310GS", "G 310GS"],
     "category": "trail",
     "usage": ["misto", "viagem"],
     "priceRange": "medio",
@@ -80,6 +86,7 @@
   {
     "id": "honda-cb500x",
     "name": "Honda CB500X",
+    "aliases": ["CB 500 X", "CB-500X", "Honda CB 500 X"],
     "category": "trail",
     "usage": ["viagem", "misto"],
     "priceRange": "medio",
@@ -93,6 +100,7 @@
   {
     "id": "suzuki-vstrom-650",
     "name": "Suzuki V-Strom 650",
+    "aliases": ["Suzuki VStrom 650", "V Strom 650", "VStrom650"],
     "category": "trail",
     "usage": ["viagem", "misto"],
     "priceRange": "alto",
@@ -106,6 +114,7 @@
   {
     "id": "honda-cbr500r",
     "name": "Honda CBR500R",
+    "aliases": ["CBR 500 R", "CBR-500R", "Honda CBR 500 R"],
     "category": "sport-touring",
     "usage": ["misto", "viagem"],
     "priceRange": "medio",
@@ -119,6 +128,7 @@
   {
     "id": "yamaha-r7",
     "name": "Yamaha R7",
+    "aliases": ["Yamaha YZF-R7", "YZF R7", "R-7"],
     "category": "sport-touring",
     "usage": ["misto", "viagem"],
     "priceRange": "alto",
@@ -132,6 +142,7 @@
   {
     "id": "triumph-tiger-900",
     "name": "Triumph Tiger 900",
+    "aliases": ["Tiger900", "Tiger 900", "Triumph Tiger900"],
     "category": "trail",
     "usage": ["viagem"],
     "priceRange": "alto",
@@ -145,6 +156,7 @@
   {
     "id": "royal-enfield-himalayan-450",
     "name": "Royal Enfield Himalayan 450",
+    "aliases": ["Himalayan450", "Himalayan 450", "Royal Enfield Himalayan450"],
     "category": "trail",
     "usage": ["misto", "viagem"],
     "priceRange": "medio",
@@ -158,6 +170,7 @@
   {
     "id": "ktm-390-duke",
     "name": "KTM 390 Duke",
+    "aliases": ["390Duke", "Duke 390", "KTM Duke 390"],
     "category": "naked",
     "usage": ["cidade", "misto"],
     "priceRange": "medio",
@@ -171,6 +184,7 @@
   {
     "id": "bmw-f900xr",
     "name": "BMW F 900 XR",
+    "aliases": ["BMW F900XR", "F900XR", "F 900XR"],
     "category": "sport-touring",
     "usage": ["viagem", "misto"],
     "priceRange": "alto",
@@ -184,6 +198,7 @@
   {
     "id": "honda-forza-750",
     "name": "Honda Forza 750",
+    "aliases": ["Forza750", "Forza 750", "Honda Forza750"],
     "category": "scooter",
     "usage": ["cidade", "misto", "viagem"],
     "priceRange": "alto",
