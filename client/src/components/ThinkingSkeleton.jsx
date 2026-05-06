@@ -1,7 +1,7 @@
-export function ThinkingSkeleton({ bikes }) {
+export function ThinkingSkeleton({ bikes, labels }) {
   const items = bikes?.length ? bikes : [null, null, null];
   return (
-    <div className="thinking-skeleton-grid" aria-busy="true" aria-label="A carregar recomendacoes">
+    <div className="thinking-skeleton-grid" aria-busy="true" aria-label={labels.loadingRecommendations}>
       {items.map((bike, idx) => (
         <div
           key={bike?.id ?? idx}

@@ -5,13 +5,42 @@ import { Logo } from "./components/Logo";
 import { QuizCard } from "./components/QuizCard";
 import { ResultsCard } from "./components/ResultsCard";
 import { ThinkingSkeleton } from "./components/ThinkingSkeleton";
-import { buildFallbackExplanation, localFallbackImages } from "./lib/fallbacks";
+import { buildFallbackComparison, buildFallbackComparisonRows, localFallbackImages } from "./lib/fallbacks";
 import { rankMotorcycles } from "./lib/scoring";
 import { readCache, writeCache } from "./lib/cache";
-import { fetchBikeImage, fetchExplanation, fetchJson } from "./services/api";
+import { fetchBikeComparison, fetchBikeImage, fetchJson } from "./services/api";
+import { SUPPORTED_LANGUAGES, translations } from "./i18n";
 import "./App.css";
 
 const THEME_STORAGE_KEY = "bikefinder-theme";
+const LANGUAGE_STORAGE_KEY = "bikefinder-language";
+const DEFAULT_LABELS = {
+  toggleToLight: "Ativar modo claro",
+  toggleToDark: "Ativar modo escuro",
+  languageSelectorLabel: "Selecionar idioma",
+  heroTitle: "Descobre a tua mota ideal",
+  heroLead: "Responde a um questionario rapido e recebe recomendacoes com contexto tecnico.",
+  questionProgress: (current, total) => `Pergunta ${current} de ${total}`,
+  previous: "Anterior",
+  next: "Seguinte",
+  preparingResult: "A preparar resultado...",
+  seeResult: "Ver resultado",
+  recommendationTitle: "A tua recomendacao",
+  recommendationSubtitle: "Resultado gerado pelo motor interno de scoring.",
+  technicalExplanation: "Comparador tecnico",
+  restartQuiz: "Refazer questionario",
+  primaryRecommendation: "Recomendacao principal",
+  alternative: "Alternativa",
+  category: "Categoria",
+  budget: "Orcamento",
+  internalScore: "Score interno",
+  loadingRecommendations: "A carregar recomendacoes",
+  thinkingTitle: "A pensar na tua recomendacao...",
+  thinkingLead: "Estamos a preparar imagens e comparador tecnico.",
+  chooseOptionBeforeContinuing: "Seleciona uma opcao antes de continuar.",
+  appStartError: "Erro ao iniciar a aplicacao:",
+  loading: "A carregar..."
+};
 
 function getInitialTheme() {
   if (typeof window === "undefined") return "light";
@@ -20,14 +49,20 @@ function getInitialTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function logExplanationFallback(result, extra = {}) {
+function logComparisonFallback(result, extra = {}) {
   // eslint-disable-next-line no-console
-  console.warn("[bikefinder] Explicacao em fallback", {
+  console.warn("[bikefinder] Comparador em fallback", {
     reason: result.reason || "unknown",
-    status: result.llmStatus ?? null,
-    detail: result.llmErrorSnippet || "",
+    detail: result.errorSnippet || "",
     ...extra
   });
+}
+
+function getInitialLanguage() {
+  if (typeof window === "undefined") return "pt";
+  const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  if (saved && SUPPORTED_LANGUAGES.includes(saved)) return saved;
+  return "pt";
 }
 
 function App() {
@@ -38,18 +73,25 @@ function App() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [top3, setTop3] = useState([]);
   const [imageByBikeId, setImageByBikeId] = useState({});
-  const [explanationText, setExplanationText] = useState("");
+  const [, setComparisonText] = useState("");
+  const [comparisonRows, setComparisonRows] = useState([]);
   const [isPreparing, setIsPreparing] = useState(false);
   const [preparingTop3, setPreparingTop3] = useState(null);
   const [theme, setTheme] = useState(getInitialTheme);
+  const [language, setLanguage] = useState(getInitialLanguage);
   const [error, setError] = useState("");
 
   const imageCacheRef = useRef({});
+  const labels = { ...DEFAULT_LABELS, ...(translations.pt || {}), ...(translations[language] || {}) };
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  }, [language]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -63,7 +105,7 @@ function App() {
         setMotorcycles(loadedMotorcycles);
         setRules(loadedRules);
       } catch (bootstrapError) {
-        setError(`Erro ao iniciar a aplicacao: ${bootstrapError.message}`);
+        setError(`${labels.appStartError} ${bootstrapError.message}`);
       }
     }
 
@@ -115,45 +157,41 @@ function App() {
     return fallback;
   }
 
-  async function getExplanation(profile, selectedTop3, selectedReasoningMap) {
-    const fallbackText = buildFallbackExplanation(selectedTop3, profile, selectedReasoningMap);
+  async function getComparison(selectedTop3) {
+    const fallbackText = buildFallbackComparison(selectedTop3);
     try {
-      const data = await fetchExplanation({
-        profile,
-        top3: selectedTop3,
-        reasoning: selectedReasoningMap
-      });
+      const data = await fetchBikeComparison({ top3: selectedTop3 });
       const apiText = (data.text || "").trim();
       let text = data.fallback ? fallbackText : apiText;
       let isFallback = Boolean(data.fallback);
-      let reason = data.reason || (data.fallback ? "unknown_fallback_reason" : "ok");
+      let reason = data.reason || (data.fallback ? "unknown_api_fallback_reason" : "ok");
 
       if (!isFallback && !apiText) {
         text = fallbackText;
         isFallback = true;
-        reason = "empty_llm_response";
+        reason = "empty_comparison_response";
       }
 
       const result = {
         text,
         isFallback,
         reason,
-        llmStatus: data.llmStatus ?? null,
-        llmErrorSnippet: data.llmErrorSnippet || ""
+        errorSnippet: data.errorSnippet || "",
+        comparisons: Array.isArray(data.comparisons) ? data.comparisons : []
       };
       if (result.isFallback) {
-        logExplanationFallback(result, { source: "network_or_parse" });
+        logComparisonFallback(result, { source: "network_or_parse" });
       }
       return result;
-    } catch (explainError) {
+    } catch (comparisonError) {
       const result = {
         text: fallbackText,
         isFallback: true,
         reason: "request_failed_on_client",
-        llmStatus: null,
-        llmErrorSnippet: explainError?.message || ""
+        errorSnippet: comparisonError?.message || "",
+        comparisons: []
       };
-      logExplanationFallback(result, { source: "client_fetch" });
+      logComparisonFallback(result, { source: "client_fetch" });
       return result;
     }
   }
@@ -161,7 +199,7 @@ function App() {
   async function handleNext() {
     const question = questions[currentQuestion];
     if (!answers[question.id]) {
-      window.alert("Seleciona uma opcao antes de continuar.");
+      window.alert(labels.chooseOptionBeforeContinuing);
       return;
     }
 
@@ -172,24 +210,26 @@ function App() {
     }
 
     const profile = { ...answers };
-    const { top3: selectedTop3, reasoningMap: selectedReasoningMap } = rankMotorcycles(profile, motorcycles, rules);
+    const { top3: selectedTop3 } = rankMotorcycles(profile, motorcycles, rules);
     setPreparingTop3(selectedTop3);
     setIsPreparing(true);
-    setExplanationText("");
+    setComparisonText("");
+    setComparisonRows([]);
 
     try {
-      const [imagesEntries, finalExplanation] = await Promise.all([
+      const [imagesEntries, finalComparison] = await Promise.all([
         Promise.all(
           selectedTop3.map(async (bike) => {
             const imageUrl = await getImageForBike(bike);
             return [bike.id, imageUrl];
           })
         ),
-        getExplanation(profile, selectedTop3, selectedReasoningMap)
+        getComparison(selectedTop3)
       ]);
 
       setImageByBikeId(Object.fromEntries(imagesEntries));
-      setExplanationText(finalExplanation.text || "");
+      setComparisonText(finalComparison.text || "");
+      setComparisonRows(finalComparison.comparisons.length ? finalComparison.comparisons : buildFallbackComparisonRows(selectedTop3));
       setTop3(selectedTop3);
     } finally {
       setPreparingTop3(null);
@@ -200,14 +240,20 @@ function App() {
   if (isPreparing) {
     return (
       <main className="container">
-        <AppHeader theme={theme} onToggleTheme={toggleTheme} />
-        <HeroBlock />
+        <AppHeader
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          language={language}
+          onLanguageChange={setLanguage}
+          labels={labels}
+        />
+        <HeroBlock labels={labels} />
         <div className="card thinking-card">
           <Logo variant="thinking" />
           <div className="spinner" aria-hidden="true" />
-          <h2 className="thinking-title">A pensar na tua recomendacao...</h2>
-          <p className="thinking-lead">Estamos a preparar imagens e explicacao personalizada.</p>
-          <ThinkingSkeleton bikes={preparingTop3} />
+          <h2 className="thinking-title">{labels.thinkingTitle}</h2>
+          <p className="thinking-lead">{labels.thinkingLead}</p>
+          <ThinkingSkeleton bikes={preparingTop3} labels={labels} />
         </div>
       </main>
     );
@@ -218,7 +264,8 @@ function App() {
     setCurrentQuestion(0);
     setTop3([]);
     setImageByBikeId({});
-    setExplanationText("");
+    setComparisonText("");
+    setComparisonRows([]);
     setIsPreparing(false);
     setPreparingTop3(null);
   }
@@ -226,7 +273,13 @@ function App() {
   if (error) {
     return (
       <main className="container">
-        <AppHeader theme={theme} onToggleTheme={toggleTheme} />
+        <AppHeader
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          language={language}
+          onLanguageChange={setLanguage}
+          labels={labels}
+        />
         <div className="card card--message">
           <div className="results-brand">
             <Logo variant="inline" />
@@ -240,12 +293,18 @@ function App() {
   if (!questions.length || !rules || !motorcycles.length) {
     return (
       <main className="container">
-        <AppHeader theme={theme} onToggleTheme={toggleTheme} />
+        <AppHeader
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          language={language}
+          onLanguageChange={setLanguage}
+          labels={labels}
+        />
         <div className="card card--message">
           <div className="results-brand">
             <Logo variant="inline" />
           </div>
-          A carregar...
+          {labels.loading}
         </div>
       </main>
     );
@@ -255,8 +314,14 @@ function App() {
 
   return (
     <main className="container">
-      <AppHeader theme={theme} onToggleTheme={toggleTheme} />
-      <HeroBlock />
+      <AppHeader
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        language={language}
+        onLanguageChange={setLanguage}
+        labels={labels}
+      />
+      <HeroBlock labels={labels} />
 
       {!top3.length ? (
         <div key={currentQuestion} className="panel-enter">
@@ -269,15 +334,17 @@ function App() {
             onPrevious={() => setCurrentQuestion((value) => Math.max(0, value - 1))}
             onNext={handleNext}
             isPreparing={isPreparing}
+            labels={labels}
           />
         </div>
       ) : (
         <div className="panel-enter results-enter">
           <ResultsCard
             top3={top3}
-            explanationText={explanationText}
+            comparisonRows={comparisonRows}
             imageByBikeId={imageByBikeId}
             onRestart={handleRestart}
+            labels={labels}
           />
         </div>
       )}

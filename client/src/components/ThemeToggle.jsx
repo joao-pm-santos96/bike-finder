@@ -1,4 +1,4 @@
-export function ThemeToggle({ theme, onToggle }) {
+export function ThemeToggle({ theme, onToggle, labels }) {
   const isDark = theme === "dark";
   return (
     <button
@@ -6,7 +6,7 @@ export function ThemeToggle({ theme, onToggle }) {
       className="theme-toggle"
       onClick={onToggle}
       aria-pressed={isDark}
-      aria-label={isDark ? "Ativar modo claro" : "Ativar modo escuro"}
+      aria-label={isDark ? labels.toggleToLight : labels.toggleToDark}
     >
       {isDark ? (
         <svg className="theme-toggle-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -18,8 +18,12 @@ export function ThemeToggle({ theme, onToggle }) {
       ) : (
         <svg className="theme-toggle-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path
-            fill="currentColor"
-            d="M21.64 13a9 9 0 1 1-11.64-11 7 7 0 0 0 11.64 11ZM12 3a1 1 0 0 0-1 1v1a1 1 0 1 0 2 0V4a1 1 0 0 0-1-1Zm-6.36 1.05a1 1 0 0 0-1.42 1.42l.7.7a1 1 0 0 0 1.42-1.42l-.7-.7ZM3 11a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2H3Zm2.05 6.36a1 1 0 0 0 1.42 1.42l.7-.7a1 1 0 1 0-1.42-1.42l-.7.7ZM12 19a1 1 0 0 0-1 1v1a1 1 0 1 0 2 0v-1a1 1 0 0 0-1-1Zm6.36-1.05a1 1 0 0 0-1.42-1.42l-.7.7a1 1 0 1 0 1.42 1.42l.7-.7ZM19 11h1a1 1 0 1 0 0-2h-1a1 1 0 1 0 0 2Zm-1.05-6.36a1 1 0 0 0-1.42 0l-.7.7a1 1 0 0 0 1.42 1.42l.7-.7a1 1 0 0 0 0-1.42Z"
+            d="M20.2 14.2A8.5 8.5 0 1 1 9.8 3.8a6.8 6.8 0 0 0 10.4 10.4Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </svg>
       )}

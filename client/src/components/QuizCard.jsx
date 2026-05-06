@@ -6,14 +6,15 @@ export function QuizCard({
   onSelectOption,
   onPrevious,
   onNext,
-  isPreparing
+  isPreparing,
+  labels
 }) {
   const progress = Math.round(((currentQuestion + 1) / totalQuestions) * 100);
 
   return (
     <div className="card quiz-card">
       <div className="progress-wrap">
-        <div className="progress-label">{`Pergunta ${currentQuestion + 1} de ${totalQuestions}`}</div>
+        <div className="progress-label">{labels.questionProgress(currentQuestion + 1, totalQuestions)}</div>
         <div className="progress-bar">
           <span className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
@@ -35,10 +36,10 @@ export function QuizCard({
 
       <div className="actions">
         <button type="button" className="btn secondary" onClick={onPrevious} disabled={currentQuestion === 0}>
-          Anterior
+          {labels.previous}
         </button>
         <button type="button" className="btn primary" onClick={onNext} disabled={isPreparing}>
-          {isPreparing ? "A preparar resultado..." : currentQuestion === totalQuestions - 1 ? "Ver resultado" : "Seguinte"}
+          {isPreparing ? labels.preparingResult : currentQuestion === totalQuestions - 1 ? labels.seeResult : labels.next}
         </button>
       </div>
     </div>

@@ -70,6 +70,105 @@ h3 {
   margin-bottom: 8px;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.language-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.language-flag {
+  width: 18px;
+  height: 13px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--card));
+}
+
+.language-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 88px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 10px var(--shadow);
+}
+
+.language-select:hover,
+.language-select[aria-expanded="true"] {
+  border-color: var(--primary);
+}
+
+.language-caret {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: transform 0.18s ease;
+}
+
+.language-select[aria-expanded="true"] .language-caret {
+  transform: rotate(180deg);
+}
+
+.language-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  min-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 12px 28px var(--shadow);
+}
+
+.language-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.language-menu-item:hover,
+.language-menu-item.is-active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .logo {
   display: flex;
   align-items: center;
@@ -82,21 +181,20 @@ h3 {
 }
 
 .logo-mark-backer {
-  fill: color-mix(in srgb, var(--primary) 14%, var(--card));
   stroke: var(--primary);
-  stroke-width: 1.35;
+  stroke-width: 1.6;
 }
 
 .logo-mark-wheel {
   fill: none;
   stroke: var(--text);
-  stroke-opacity: 0.4;
-  stroke-width: 1.65;
+  stroke-opacity: 0.34;
+  stroke-width: 2.2;
 }
 
 .logo-mark-hub {
   fill: var(--primary);
-  opacity: 0.32;
+  opacity: 0.5;
 }
 
 .logo-mark-body,
@@ -106,6 +204,27 @@ h3 {
 
 .logo-mark-seat {
   opacity: 0.9;
+}
+
+.logo-mark-glow {
+  fill: rgba(255, 255, 255, 0.3);
+}
+
+.logo-mark-gradient-start {
+  stop-color: color-mix(in srgb, var(--primary) 18%, var(--card));
+}
+
+.logo-mark-gradient-end {
+  stop-color: color-mix(in srgb, var(--primary) 6%, var(--card));
+}
+
+.logo-mark-finder {
+  fill: var(--primary);
+  filter: drop-shadow(0 2px 4px var(--shadow-strong));
+}
+
+.logo-mark-finder-dot {
+  fill: #fff;
 }
 
 .logo-wordmark {
@@ -539,6 +658,59 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 18px 22px;
+}
+
+.comparison-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 6%, var(--card));
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+  text-align: left;
+}
+
+.comparison-table th,
+.comparison-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 11px 12px;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.comparison-table thead th {
+  background: color-mix(in srgb, var(--primary) 15%, var(--card));
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.comparison-table tbody th {
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-elevated) 75%, var(--card));
+}
+
+.comparison-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--bg-elevated) 55%, var(--card));
+}
+
+.comparison-table tbody tr:hover td,
+.comparison-table tbody tr:hover th {
+  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+}
+
+.comparison-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
 }
 
 .thinking-card {

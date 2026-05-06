@@ -10,12 +10,12 @@ export async function fetchBikeImage(query) {
   return response.json();
 }
 
-export async function fetchExplanation(payload) {
-  const response = await fetch("/api/explain", {
+export async function fetchBikeComparison(payload) {
+  const response = await fetch("/api/compare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  if (!response.ok) throw new Error("Falha ao carregar explicacao");
+  if (!response.ok) throw new Error("Falha ao carregar comparador");
   return response.json();
 }
